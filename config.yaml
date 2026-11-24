@@ -1,0 +1,56 @@
+# ML Model Monitoring Dashboard - Configuration
+# Single source of truth for paths, thresholds, and schema.
+
+paths:
+  reference_data: "data/reference/reference_data.csv"
+  production_data: "data/production/production_data.csv"
+  predictions_log: "data/predictions/prediction_logs.csv"
+  model_dir: "models"
+  model_artifact: "models/trained_model.pkl"
+  model_metadata: "models/model_metadata.json"
+  logs_dir: "logs"
+  monitor_log: "logs/monitoring.logs"
+  reports_dir: "reports"
+  drift_reports_dir: "drift_reports"
+  performance_reports_dir: "performance_reports"
+
+data:
+  target_column: "target"
+  id_column: "prediction_id"
+  feature_columns: []
+  categorical_columns: []
+  numeric_columns: []
+
+drift:
+  ks_p_value_threshold: 0.05
+  psi_threshold: 0.2
+  chi2_p_value_threshold: 0.05
+  psi_high_alert: 0.25
+
+performance:
+  min_accuracy: 0.70
+  min_precision: 0.65
+  min_recall: 0.65
+  min_f1: 0.65
+  min_roc_auc: 0.70
+  window_size: 100
+
+model:
+  random_state: 42
+  test_size: 0.2
+  classifier: "random_forest"
+  n_estimators: 100
+
+prediction_log:
+  columns:
+    - "prediction_id"
+    - "timestamp"
+    - "features"
+    - "prediction"
+    - "prediction_proba"
+    - "actual_label"
+    - "model_version"
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
