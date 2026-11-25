@@ -35,3 +35,19 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.bak
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Generated reports and monitoring data
+reports/
+data/processed/
+
+# Model files
+*.pkl
+*.joblib
+
+# Python packaging
+build/
+dist/
+*.egg-info/

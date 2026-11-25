@@ -6,6 +6,7 @@ chi-square test for categorical drift, and classification metric wrappers.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import numpy as np
@@ -18,50 +19,47 @@ def psi(
     actual: np.ndarray | pd.Series,
     buckets: int = 10,
 ) -> float:
-    """Compute Population Stability Index (PSI) between two distributions.
+    """Compute Population Stability Index (PSI) between two distributions."""
 
-    PSI measures how much a distribution has shifted compared to a reference.
-    Common interpretation:
-        PSI < 0.10: insignificant change
-        0.10 <= PSI < 0.25: minor change
-        PSI >= 0.25: significant change
-
-    Args:
-        expected: Reference distribution values.
-        actual: Production/distribution values to compare.
-        buckets: Number of quantile buckets to use.
-
-    Returns:
-        PSI value (float).
-    """
     expected = np.asarray(expected, dtype=float)
     actual = np.asarray(actual, dtype=float)
 
-    # Remove NaN/inf
     expected = expected[np.isfinite(expected)]
     actual = actual[np.isfinite(actual)]
 
     if len(expected) == 0 or len(actual) == 0:
         return float("nan")
 
-    # Breakpoints from expected quantiles
-    breakpoints = np.linspace(0, 100, buckets + 1)
-    expected_percentiles = np.percentile(expected, breakpoints)
-    expected_percentiles[0] = -np.inf
-    expected_percentiles[-1] = np.inf
+    if buckets < 1:
+        raise ValueError("buckets must be at least 1")
 
-    # Histograms
-    expected_counts, _ = np.histogram(expected, bins=expected_percentiles)
-    actual_counts, _ = np.histogram(actual, bins=expected_percentiles)
+    # Use unique quantile boundaries to handle duplicate values.
+    breakpoints = np.unique(
+        np.percentile(expected, np.linspace(0, 100, buckets + 1))
+    )
 
-    # Convert to proportions with small epsilon to avoid division by zero
+    # A constant reference distribution has no meaningful quantile bins.
+    if len(breakpoints) < 2:
+        return 0.0 if np.all(actual == expected[0]) else float("inf")
+
+    breakpoints[0] = -np.inf
+    breakpoints[-1] = np.inf
+
+    expected_counts, _ = np.histogram(expected, bins=breakpoints)
+    actual_counts, _ = np.histogram(actual, bins=breakpoints)
+
     expected_props = expected_counts / len(expected)
     actual_props = actual_counts / len(actual)
-    epsilon = 1e-6
-    expected_props = np.clip(expected_props, epsilon, 1.0)
-    actual_props = np.clip(actual_props, epsilon, 1.0)
 
-    psi_values = (actual_props - expected_props) * np.log(actual_props / expected_props)
+    epsilon = 1e-6
+    expected_props = np.clip(expected_props, epsilon, None)
+    actual_props = np.clip(actual_props, epsilon, None)
+
+    psi_values = (
+        (actual_props - expected_props)
+        * np.log(actual_props / expected_props)
+    )
+
     return float(np.sum(psi_values))
 
 
@@ -69,17 +67,11 @@ def ks_statistic(
     expected: np.ndarray | pd.Series,
     actual: np.ndarray | pd.Series,
 ) -> tuple[float, float]:
-    """Two-sample Kolmogorov-Smirnov test.
+    """Two-sample Kolmogorov-Smirnov test."""
 
-    Args:
-        expected: Reference sample.
-        actual: Sample to compare against reference.
-
-    Returns:
-        (KS statistic, p-value).
-    """
     expected = np.asarray(expected, dtype=float)
     actual = np.asarray(actual, dtype=float)
+
     expected = expected[np.isfinite(expected)]
     actual = actual[np.isfinite(actual)]
 
@@ -87,6 +79,7 @@ def ks_statistic(
         return float("nan"), float("nan")
 
     stat, p_value = stats.ks_2samp(expected, actual)
+
     return float(stat), float(p_value)
 
 
@@ -94,39 +87,37 @@ def chi_square_test(
     expected: np.ndarray | pd.Series,
     actual: np.ndarray | pd.Series,
 ) -> tuple[float, float]:
-    """Chi-square test of independence for categorical distributions.
+    """Compare two categorical distributions using a chi-square test."""
 
-    Builds a 2×k contingency table (reference × production counts per category)
-    and uses scipy.stats.chi2_contingency to test whether the two categorical
-    distributions differ. This correctly handles different dataset sizes and
-    categories missing from either dataset.
-
-    Args:
-        expected: Reference categorical values.
-        actual: Production categorical values.
-
-    Returns:
-        (chi-square statistic, p-value).
-    """
     expected = np.asarray(expected)
     actual = np.asarray(actual)
+
+    # Remove missing categorical values.
+    expected = expected[pd.notna(expected)]
+    actual = actual[pd.notna(actual)]
 
     if len(expected) == 0 or len(actual) == 0:
         return float("nan"), float("nan")
 
-    categories = np.unique(np.concatenate([expected, actual]))
+    categories = np.union1d(expected, actual)
 
-    # Build contingency table: row 0 = reference, row 1 = production
-    ref_counts = np.array([np.sum(expected == c) for c in categories], dtype=float)
-    prod_counts = np.array([np.sum(actual == c) for c in categories], dtype=float)
-    contingency = np.vstack([ref_counts, prod_counts])
+    if len(categories) < 2:
+        return float("nan"), float("nan")
 
-    # Chi-square test of independence on the contingency table
-    # This handles different sample sizes naturally via expected frequencies
+    ref_counts = np.array(
+        [(expected == category).sum() for category in categories]
+    )
+    actual_counts = np.array(
+        [(actual == category).sum() for category in categories]
+    )
+
+    contingency = np.vstack([ref_counts, actual_counts])
+
     try:
-        stat, p_value, dof, expected_freq = stats.chi2_contingency(contingency)
-    except ValueError:
-        # e.g., if a row/column sums to zero
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            stat, p_value, _, _ = stats.chi2_contingency(contingency)
+    except (ValueError, Warning):
         return float("nan"), float("nan")
 
     return float(stat), float(p_value)
@@ -137,16 +128,8 @@ def classification_metrics(
     y_pred: np.ndarray | pd.Series,
     y_proba: np.ndarray | pd.Series | None = None,
 ) -> dict[str, float]:
-    """Compute standard binary classification metrics.
+    """Compute standard binary classification metrics."""
 
-    Args:
-        y_true: Ground truth labels.
-        y_pred: Predicted labels.
-        y_proba: Predicted probabilities for the positive class (optional).
-
-    Returns:
-        Dictionary with accuracy, precision, recall, f1, and optionally roc_auc.
-    """
     from sklearn.metrics import (
         accuracy_score,
         f1_score,
@@ -158,6 +141,12 @@ def classification_metrics(
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
 
+    if len(y_true) == 0 or len(y_pred) == 0:
+        raise ValueError("y_true and y_pred cannot be empty")
+
+    if len(y_true) != len(y_pred):
+        raise ValueError("y_true and y_pred must have equal lengths")
+
     metrics: dict[str, float] = {
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "precision": float(precision_score(y_true, y_pred, zero_division=0)),
@@ -167,6 +156,10 @@ def classification_metrics(
 
     if y_proba is not None:
         y_proba = np.asarray(y_proba)
+
+        if len(y_proba) != len(y_true):
+            raise ValueError("y_proba and y_true must have equal lengths")
+
         try:
             metrics["roc_auc"] = float(roc_auc_score(y_true, y_proba))
         except ValueError:
@@ -179,12 +172,20 @@ def confusion_matrix_counts(
     y_true: np.ndarray | pd.Series,
     y_pred: np.ndarray | pd.Series,
 ) -> dict[str, int]:
-    """Return confusion matrix components as a dictionary."""
+    """Return binary confusion matrix components."""
+
     from sklearn.metrics import confusion_matrix
 
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
-    tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
+
+    if len(y_true) != len(y_pred):
+        raise ValueError("y_true and y_pred must have equal lengths")
+
+    tn, fp, fn, tp = confusion_matrix(
+        y_true, y_pred, labels=[0, 1]
+    ).ravel()
+
     return {
         "true_negative": int(tn),
         "false_positive": int(fp),

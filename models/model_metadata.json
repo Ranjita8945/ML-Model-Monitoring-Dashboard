@@ -18,7 +18,7 @@
     "f1": 0.9081885856079405,
     "roc_auc": 0.9763494087352184
   },
-  "trained_at": "2026-11-25T13:08:27.316679+00:00",
+  "trained_at": "2026-11-25T14:59:56.220204+00:00",
   "config": {
     "paths": {
       "reference_data": "data/reference/reference_data.csv",

@@ -45,4 +45,10 @@ st.sidebar.markdown("---")
 st.sidebar.caption("ML Model Monitoring Dashboard v0.1.0")
 
 page = PAGES[selection]
-page()
+
+try:
+    page()
+except Exception as exc:
+    st.error(f"Unable to load the {selection} page.")
+    with st.expander("Error details"):
+        st.exception(exc)

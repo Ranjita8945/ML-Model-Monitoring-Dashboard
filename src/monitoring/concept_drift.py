@@ -27,10 +27,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.data.data_loader import load_config, load_predictions_log, resolve_path
+from src.data.data_loader import load_config, resolve_path
 from src.utils.metrics import classification_metrics, confusion_matrix_counts, psi
 from src.utils.helpers import load_json, safe_read_csv
-
 
 @dataclass
 class DriftCheckResult:
@@ -400,12 +399,10 @@ def detect_concept_drift(
 
     production_metrics: dict[str, float] = {}
     if not labeled.empty and window_size > 0 and "actual_label" in labeled.columns and "prediction" in labeled.columns:
-        # Use the latest rolling window for production metrics
-        n_windows = max(1, len(labeled) // window_size)
-        latest_start = (n_windows - 1) * window_size
-        latest_end = latest_start + window_size
-        latest_window = labeled.iloc[latest_start:latest_end]
-
+        
+        
+        # Select the most recent production records.
+        latest_window = labeled.tail(window_size)
         y_true = latest_window["actual_label"].values
         y_pred = latest_window["prediction"].values
         y_proba = (

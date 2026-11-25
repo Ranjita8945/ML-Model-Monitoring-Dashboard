@@ -90,14 +90,17 @@ def rolling_performance(
             overall_passed=True,
         )
 
-    n_windows = max(1, len(labeled) // window_size)
+    if window_size <= 0:
+         raise ValueError("window_size must be greater than 0")
+
+    n_windows = (len(labeled) + window_size - 1) // window_size
     window_results: list[dict[str, Any]] = []
     alerts: list[PerformanceAlert] = []
     overall_passed = True
 
     for i in range(n_windows):
         start = i * window_size
-        end = start + window_size
+        end = min(start + window_size, len(labeled))
         window_df = labeled.iloc[start:end]
 
         y_true = window_df["actual_label"].values
