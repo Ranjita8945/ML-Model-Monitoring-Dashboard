@@ -1,6 +1,8 @@
 # ML Model Monitoring Dashboard
 
-A Python-based machine learning monitoring dashboard for detecting data drift, concept drift, and model performance degradation. Built using Scikit-learn, Pandas, SciPy, Plotly, and Streamlit.
+A Python-based machine learning monitoring dashboard for detecting data drift, potential concept drift, and model performance degradation.
+
+Built using Python, Scikit-learn, Pandas, SciPy, Plotly, and Streamlit.
 
 ## Project Overview
 
@@ -34,8 +36,8 @@ This project implements monitoring techniques that help identify:
 
 | Feature | Description |
 |---|---|
-| Data Drift Detection | Numeric and categorical drift detection using statistical methods |
-| PSI | Population Stability Index for measuring distribution changes |
+| Data Drift Detection | Numeric and categorical drift detection |
+| PSI | Population Stability Index |
 | KS Test | Statistical comparison of numeric distributions |
 | Chi-Square Test | Statistical comparison of categorical distributions |
 | Concept Drift | Performance-based concept drift indication |
@@ -85,7 +87,6 @@ ML-Model-Monitoring-Dashboard/
 │   └── prediction_dashboard.py
 │
 ├── tests/
-│
 ├── data/
 ├── models/
 ├── drift_reports/
@@ -96,24 +97,28 @@ ML-Model-Monitoring-Dashboard/
 ## Dashboard Pages
 
 ### 1. Overview
+
 - Model information and metadata.
 - Training metrics.
 - Recent predictions.
 - Active monitoring alerts.
 
 ### 2. Data Drift
+
 - Reference and production dataset comparison.
 - Feature-level drift statistics.
 - PSI and KS statistics.
 - Distribution comparison visualizations.
 
 ### 3. Performance
+
 - Rolling accuracy and F1-score.
 - Performance alerts.
 - Latest window confusion matrix.
 - Classification performance metrics.
 
 ### 4. Predictions
+
 - Recent prediction records.
 - Model version filtering.
 - Prediction class filtering.
@@ -141,13 +146,13 @@ ML-Model-Monitoring-Dashboard/
 
 PSI measures changes between reference and production distributions.
 
-Common interpretation:
+Common interpretation guidelines:
 
 - PSI < 0.10: Little or no significant change.
 - 0.10 ≤ PSI < 0.25: Moderate change.
 - PSI ≥ 0.25: Significant change.
 
-These are commonly used guidelines; thresholds should be selected according to the application.
+These thresholds are guidelines and should be selected according to the application.
 
 ### Kolmogorov-Smirnov (KS) Test
 
@@ -174,6 +179,112 @@ The project uses classification metrics including:
 
 ### Concept Drift Detection
 
-Concept drift concerns changes in the relationship between input features and the target variable.
+Concept drift occurs when the relationship between input features and the target variable changes over time.
 
-This project
+This project uses changes in model performance across monitoring windows as an indication of potential concept drift.
+
+**Note:** Performance degradation can have multiple causes. It does not independently prove concept drift.
+
+## Installation
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/Ranjita8945/ML-Model-Monitoring-Dashboard.git
+cd ML-Model-Monitoring-Dashboard
+```
+
+### 2. Create a Virtual Environment
+
+```bash
+python -m venv .venv
+```
+
+Activate it on Windows:
+
+```bash
+.venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+## Running the Project
+
+The root `app.py` provides four execution modes.
+
+### Launch the Dashboard
+
+```bash
+python app.py
+```
+
+Alternatively:
+
+```bash
+streamlit run dashboard/app.py
+```
+
+### Train the Model
+
+```bash
+python app.py --mode train
+```
+
+### Run a Monitoring Cycle
+
+```bash
+python app.py --mode monitor
+```
+
+### Run the Complete Pipeline
+
+```bash
+python app.py --mode pipeline
+```
+
+The pipeline executes model training followed by a monitoring cycle.
+
+## Running Tests
+
+Run the complete test suite:
+
+```bash
+pytest -v
+```
+
+### Test Results
+
+Latest recorded test result:
+
+**70 passed, 2 warnings**
+
+The warnings relate to Scikit-learn feature-name consistency and do not indicate test failures.
+
+## Project Limitations
+
+- Monitoring is demonstrated using generated or simulated production data.
+- The project is not connected to a live production model-serving system.
+- Concept drift is inferred through performance degradation rather than directly proven.
+- Statistical thresholds may require adjustment for different datasets and applications.
+- Monitoring results depend on the availability of actual labels for performance evaluation.
+
+## Future Improvements
+
+- Integrate monitoring with a live model-serving API.
+- Add automated monitoring schedules.
+- Implement more advanced drift detection techniques.
+- Add configurable alert notifications.
+- Integrate experiment tracking and model version management.
+- Deploy the dashboard to a cloud platform.
+
+## Author
+
+**Ranjita Dandgulkar**
+
+B.Tech – Artificial Intelligence and Machine Learning
+
+GitHub: https://github.com/Ranjita8945
