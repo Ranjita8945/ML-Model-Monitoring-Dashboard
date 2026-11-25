@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from src.utils.metrics import chi_square_test, ks_statistic, psi
@@ -131,10 +132,24 @@ def detect_data_drift(
         prod_vals = production[col].dropna().values
 
         chi2_stat, chi2_p = chi_square_test(ref_vals, prod_vals)
-        psi_val = psi(
-            pd.Categorical(ref_vals).codes,
-            pd.Categorical(prod_vals).codes,
-        )
+
+        # Categorical PSI using a shared vocabulary for consistent encoding
+        all_categories = sorted(set(ref_vals.tolist()) | set(prod_vals.tolist()))
+        cat_to_code = {cat: i for i, cat in enumerate(all_categories)}
+
+        # Encode using shared vocabulary; missing categories get code -1 (will be
+        # excluded from PSI calculation by the epsilon clipping in psi())
+        ref_codes = np.array([cat_to_code.get(c, -1) for c in ref_vals], dtype=float)
+        prod_codes = np.array([cat_to_code.get(c, -1) for c in prod_vals], dtype=float)
+
+        # Filter out any unmapped codes (-1) before PSI
+        ref_codes = ref_codes[ref_codes >= 0]
+        prod_codes = prod_codes[prod_codes >= 0]
+
+        if len(ref_codes) > 0 and len(prod_codes) > 0:
+            psi_val = psi(ref_codes, prod_codes, buckets=len(all_categories))
+        else:
+            psi_val = float("nan")
 
         drifted = (chi2_p is not None and chi2_p < chi2_threshold) or (
             psi_val is not None and psi_val >= psi_threshold
@@ -153,6 +168,7 @@ def detect_data_drift(
                     "psi_threshold": psi_threshold,
                     "reference_categories": sorted(ref_vals.tolist()),
                     "production_categories": sorted(prod_vals.tolist()),
+                    "shared_vocabulary_size": len(all_categories),
                 },
             )
         )

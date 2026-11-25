@@ -96,6 +96,11 @@ def chi_square_test(
 ) -> tuple[float, float]:
     """Chi-square test of independence for categorical distributions.
 
+    Builds a 2×k contingency table (reference × production counts per category)
+    and uses scipy.stats.chi2_contingency to test whether the two categorical
+    distributions differ. This correctly handles different dataset sizes and
+    categories missing from either dataset.
+
     Args:
         expected: Reference categorical values.
         actual: Production categorical values.
@@ -106,16 +111,24 @@ def chi_square_test(
     expected = np.asarray(expected)
     actual = np.asarray(actual)
 
+    if len(expected) == 0 or len(actual) == 0:
+        return float("nan"), float("nan")
+
     categories = np.unique(np.concatenate([expected, actual]))
-    expected_counts = np.array([np.sum(expected == c) for c in categories], dtype=float)
-    actual_counts = np.array([np.sum(actual == c) for c in categories], dtype=float)
 
-    # Add small epsilon to avoid division by zero
-    epsilon = 1e-6
-    expected_counts = np.clip(expected_counts, epsilon, None)
-    actual_counts = np.clip(actual_counts, epsilon, None)
+    # Build contingency table: row 0 = reference, row 1 = production
+    ref_counts = np.array([np.sum(expected == c) for c in categories], dtype=float)
+    prod_counts = np.array([np.sum(actual == c) for c in categories], dtype=float)
+    contingency = np.vstack([ref_counts, prod_counts])
 
-    stat, p_value = stats.chisquare(f_obs=actual_counts, f_exp=expected_counts)
+    # Chi-square test of independence on the contingency table
+    # This handles different sample sizes naturally via expected frequencies
+    try:
+        stat, p_value, dof, expected_freq = stats.chi2_contingency(contingency)
+    except ValueError:
+        # e.g., if a row/column sums to zero
+        return float("nan"), float("nan")
+
     return float(stat), float(p_value)
 
 
